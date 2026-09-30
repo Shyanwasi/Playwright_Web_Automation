@@ -1,51 +1,12 @@
-# ==========================================
-# 1. Environment Secrets & Configs
-# ==========================================
-.env
-*.env
-config.local.py
-
-# ==========================================
-# 2. Virtual Environments & Python Cache
-# ==========================================
-venv/
-env/
-.venv/
-ENV/
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
 .pytest_cache/
-*.egg-info/
-.mypy_cache/
-
-# ==========================================
-# 3. Test Artifacts, Screenshots & Traces
-# ==========================================
-artifacts/
-screenshots/
-videos/
-traces/
-downloads/
-logs/
-*.log
-
-# ==========================================
-# 4. Test Reports (HTML, Allure, JUnit)
-# ==========================================
-reports/
-report.html
 allure-results/
 allure-report/
-.coverage
-htmlcov/
-
-# ==========================================
-# 5. IDE & OS Junk Files
-# ==========================================
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
+artifacts/
+logs/
+state/
+*.json
+.env
+.env.*
+venv/
