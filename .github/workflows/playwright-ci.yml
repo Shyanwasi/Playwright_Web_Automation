@@ -1,0 +1,53 @@
+name: Playwright Enterprise CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, feature/*, feat/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-gate:
+    name: Code Quality & Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Gate Image
+        run: docker build -t playwright-gate:latest .
+      - name: Secret Scan
+        run: docker run --rm playwright-gate:latest detect-secrets scan . --exclude-files 'venv/|__pycache__/|\.git/'
+      - name: Static Security Scan (Bandit)
+        run: docker run --rm playwright-gate:latest bandit -r pages/ config/ utils/ tests/ -s B101
+      - name: Format Check (Black)
+        run: docker run --rm playwright-gate:latest black --check pages/ config/ utils/ tests/ conftest.py
+      - name: Lint Check (Flake8)
+        run: docker run --rm playwright-gate:latest flake8 . --count --max-line-length=120 --statistics
+
+  test-execution:
+    name: Run Containerized Playwright Regression
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build Test Image
+        run: docker build -t playwright-tests:latest .
+      - name: Execute Tests
+        run: |
+          docker run --rm \
+            -e BASE_URL="${{ secrets.QA_BASE_URL }}" \
+            -e STANDARD_USER="${{ secrets.QA_STANDARD_USER }}" \
+            -e STANDARD_PASSWORD="${{ secrets.QA_STANDARD_PASSWORD }}" \
+            -e ENV_NAME="qa" \
+            -v ${{ github.workspace }}/allure-results:/app/allure-results \
+            -v ${{ github.workspace }}/artifacts:/app/artifacts \
+            playwright-tests:latest \
+            pytest --env=qa --alluredir=allure-results
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results/
+          retention-days: 14

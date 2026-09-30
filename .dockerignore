@@ -10,5 +10,5 @@ state/
 .env
 .env.*
 venv/
-.idea/
-.vscode/
+.git/
+.github/
