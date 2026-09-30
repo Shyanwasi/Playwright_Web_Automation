@@ -1,29 +1,41 @@
 import os
-from pathlib import Path
+import boto3
 from dotenv import load_dotenv
 
+
 class Config:
-    ENV_NAME = "QA_ENVIRONMENT"
     BASE_URL = ""
     STANDARD_USER = ""
-    LOCKED_USER = ""
     STANDARD_PASSWORD = ""
     AUTH_STATE_PATH = "state/auth.json"
+    ENV_NAME = "qa"
+
+    @staticmethod
+    def get_ssm_parameter(param_name: str, region_name: str = "us-east-1") -> str:
+        ssm = boto3.client("ssm", region_name=region_name)
+        response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        return response["Parameter"]["Value"]
 
     @classmethod
-    def load_environment(cls, env_name: str = "qa"):
-        target_env = env_name.lower()
-        root_dir = Path(__file__).parent.parent
-        env_file_path = root_dir / f".env.{target_env}"
+    def load_environment(cls, env: str = "qa"):
+        cls.ENV_NAME = env.lower()
 
-        if not env_file_path.exists():
-            env_file_path = root_dir / ".env"
+        # 1. First, load local .env.{env} file if present
+        env_file = f".env.{cls.ENV_NAME}"
+        if os.path.exists(env_file):
+            load_dotenv(env_file, override=True)
 
-        load_dotenv(dotenv_path=env_file_path, override=True)
-
-        cls.ENV_NAME = os.getenv("ENV_NAME", target_env.upper())
-        cls.BASE_URL = os.getenv("BASE_URL", "https://www.saucedemo.com/")
-        cls.STANDARD_USER = os.getenv("STANDARD_USER", "standard_user")
-        cls.LOCKED_USER = os.getenv("LOCKED_USER", "locked_out_user")
-        cls.STANDARD_PASSWORD = os.getenv("STANDARD_PASSWORD", "secret_sauce")
-        cls.AUTH_STATE_PATH = os.getenv("AUTH_STATE_PATH", "state/auth.json")
+        # 2. Try fetching from AWS SSM Parameter Store (Cloud CI/CD mode)
+        try:
+            cls.BASE_URL = cls.get_ssm_parameter(f"/playwright/{cls.ENV_NAME}/BASE_URL")
+            cls.STANDARD_USER = cls.get_ssm_parameter(
+                f"/playwright/{cls.ENV_NAME}/STANDARD_USER"
+            )
+            cls.STANDARD_PASSWORD = cls.get_ssm_parameter(
+                f"/playwright/{cls.ENV_NAME}/STANDARD_PASSWORD"
+            )
+        except Exception:
+            # 3. Fallback to loaded environment variables or defaults
+            cls.BASE_URL = os.getenv("BASE_URL", "https://www.saucedemo.com/")
+            cls.STANDARD_USER = os.getenv("STANDARD_USER", "standard_user")
+            cls.STANDARD_PASSWORD = os.getenv("STANDARD_PASSWORD", "secret_sauce")
