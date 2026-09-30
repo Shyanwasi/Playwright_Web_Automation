@@ -1,17 +1,19 @@
-from playwright.sync_api import Page
+﻿from playwright.sync_api import Page
+from pages.base_page import BasePage
+from config.config import Config
 
-class LoginPage:
+class LoginPage(BasePage):
     def __init__(self, page: Page):
-        self.page = page
-        # Locators
-        self.username_input = page.get_by_placeholder("Username")
-        self.password_input = page.get_by_placeholder("Password")
-        self.login_button = page.get_by_role("button", name="Login")
+        super().__init__(page)
+        self.username_input = page.locator("[data-test='username']")
+        self.password_input = page.locator("[data-test='password']")
+        self.login_button = page.locator("[data-test='login-button']")
 
     def navigate(self):
-        self.page.goto("https://www.saucedemo.com/")
+        self.navigate_to(Config.BASE_URL)
 
     def login(self, username: str, password: str):
-        self.username_input.fill(username)
-        self.password_input.fill(password)
-        self.login_button.click()
+        self.logger.info(f"Attempting login with user: {username}")
+        self.fill_field(self.username_input, username, "Username")
+        self.fill_field(self.password_input, password, "Password")
+        self.click_element(self.login_button, "Login Button")

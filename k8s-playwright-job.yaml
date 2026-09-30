@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: playwright-regression-job
+  namespace: test-automation
+  labels:
+    app.kubernetes.io/name: playwright-tests
+    app.kubernetes.io/component: regression
+spec:
+  ttlSecondsAfterFinished: 86400  # Automatically cleanup completed jobs after 24 hours
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: playwright-tests
+    spec:
+      restartPolicy: Never
+
+      # Hardening: Pod Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: playwright-runner
+          image: your-container-registry.com/playwright-tests:latest
+          imagePullPolicy: Always
+
+          # Hardening: Container Security Context
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Inject sensitive credentials via Kubernetes Secrets
+          env:
+            - name: BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: playwright-secrets
+                  key: QA_BASE_URL
+            - name: STANDARD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: playwright-secrets
+                  key: QA_STANDARD_USER
+            - name: STANDARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: playwright-secrets
+                  key: QA_STANDARD_PASSWORD
+            - name: ENV_NAME
+              value: "qa"
+            - name: AUTH_STATE_PATH
+              value: "/app/state/auth.json"
+
+          # Resource Constraints (Prevents container resource starvation)
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+
+          # Mount ephemeral memory for write operations on read-only root FS
+          volumeMounts:
+            - name: allure-results-vol
+              mountPath: /app/allure-results
+            - name: artifacts-vol
+              mountPath: /app/artifacts
+            - name: state-vol
+              mountPath: /app/state
+            - name: tmp-vol
+              mountPath: /tmp
+
+      volumes:
+        - name: allure-results-vol
+          emptyDir: {}
+        - name: artifacts-vol
+          emptyDir: {}
+        - name: state-vol
+          emptyDir: {}
+        - name: tmp-vol
+          emptyDir: {}
